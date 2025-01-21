@@ -31,30 +31,32 @@ export class OrderService {
 
   private async handleUserCreated(event: OrderEventDto) {
     console.log('Processing UserCreated event:', event);
-
-    const existingEvent = await this.prisma.processedEvent.findUnique({
-      where: { eventId: event.eventId },
-    });
-
-    if (existingEvent) {
-      console.log('Duplicate UserCreated event detected, skipping...');
-      return;
+  
+    try {
+      await this.prisma.$transaction(async (prisma) => {
+        await prisma.userCache.upsert({
+          where: { userId: event.data.userId },
+          update: {},
+          create: { userId: event.data.userId },
+        });
+  
+ 
+        await prisma.processedEvent.create({
+          data: { eventId: event.eventId },
+        });
+      });
+  
+      console.log('UserCreated event processed successfully.');
+    } catch (error) {
+      if (error.code === 'P2002') {
+        console.log('Duplicate event detected at transaction level, skipping...');
+      } else {
+        console.error('Error processing UserCreated event:', error);
+        throw error;
+      }
     }
-
-    await this.prisma.userCache.upsert({
-      where: { userId: event.data.userId },
-      update: {},
-      create: { userId: event.data.userId },
-    });
-
-
-    await this.prisma.processedEvent.create({
-      data: { eventId: event.eventId },
-    });
-
-    console.log('UserCreated event processed successfully');
   }
-
+  
 
   async createOrder(data: { userId: number; product: string; quantity: number }) {
     console.log('Service: Creating order:', data);
@@ -118,54 +120,55 @@ export class OrderService {
 
   async cancelOrder(orderId: number) {
     console.log('Service: Cancelling order with ID:', orderId);
-
+  
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
     });
-
+  
     if (!order) {
       const eventId = uuidv4();
       console.error('Order not found, publishing to DLQ.');
-
+  
       await this.retryService.executeTaskWithRetry(
         async () =>
           lastValueFrom(
             this.kafkaClient.emit('dead-letter-events', {
               eventId,
               eventType: 'OrderNotFound',
-              data: { error: 'Order not found for cancellation', orderId },
+              data: { error: 'Order not found', orderId },
             }),
           ),
         'dead-letter-events',
-        { eventId, data: { error: 'Order not found for cancellation', orderId } },
+        { eventId, data: { error: 'Order not found', orderId } },
       );
-
+  
       throw new NotFoundException('Order not found');
     }
-
+  
     await this.prisma.order.delete({
       where: { id: orderId },
     });
-
+  
     const eventId = uuidv4();
-
+  
     await this.retryService.executeTaskWithRetry(
       async () =>
         lastValueFrom(
           this.kafkaClient.emit('order-cancelled', {
             eventId,
             eventType: 'OrderCancelled',
-            data: { orderId },
+            data: { userId: order.userId, orderId },
           }),
         ),
       'dead-letter-events',
-      { eventId, data: { orderId } },
+      { eventId, data: { userId: order.userId, orderId } },
     );
-
+  
     console.log('OrderCancelled event published successfully:', { eventId, order });
-
+  
     return { message: `Order with ID ${orderId} has been cancelled` };
   }
+  
 
  
   async getOrderById(orderId: number) {

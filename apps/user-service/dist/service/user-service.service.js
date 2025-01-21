@@ -85,46 +85,70 @@ let UserService = class UserService {
     }
     async processOrderPlaced(event) {
         console.log('Processing OrderPlaced event:', event);
-        const existingEvent = await this.prisma.processedEvent.findUnique({
-            where: { eventId: event.eventId },
-        });
-        if (existingEvent) {
-            console.log('Duplicate OrderPlaced event detected, skipping...');
-            return;
+        try {
+            await this.prisma.$transaction(async (prisma) => {
+                const existingEvent = await prisma.processedEvent.findUnique({
+                    where: { eventId: event.eventId },
+                });
+                if (existingEvent) {
+                    console.log('Duplicate OrderPlaced event detected, skipping...');
+                    return;
+                }
+                await prisma.user.update({
+                    where: { id: event.data.userId },
+                    data: {
+                        totalOrders: { increment: 1 },
+                    },
+                });
+                await prisma.processedEvent.create({
+                    data: { eventId: event.eventId },
+                });
+            });
+            console.log('OrderPlaced event processed successfully.');
         }
-        await this.prisma.user.update({
-            where: { id: event.data.userId },
-            data: {
-                totalOrders: { increment: 1 },
-            },
-        });
-        await this.prisma.processedEvent.create({
-            data: { eventId: event.eventId },
-        });
-        console.log('OrderPlaced event processed successfully.');
+        catch (error) {
+            if (error.code === 'P2002') {
+                console.log('Duplicate event detected at transaction level, skipping...');
+            }
+            else {
+                throw error;
+            }
+        }
     }
     async handleOrderCancelled(event) {
         await this.retryService.executeTaskWithRetry(async () => this.processOrderCancelled(event), 'dead-letter-events', event);
     }
     async processOrderCancelled(event) {
         console.log('Processing OrderCancelled event:', event);
-        const existingEvent = await this.prisma.processedEvent.findUnique({
-            where: { eventId: event.eventId },
-        });
-        if (existingEvent) {
-            console.log('Duplicate OrderCancelled event detected, skipping...');
-            return;
+        try {
+            await this.prisma.$transaction(async (prisma) => {
+                const existingEvent = await prisma.processedEvent.findUnique({
+                    where: { eventId: event.eventId },
+                });
+                if (existingEvent) {
+                    console.log('Duplicate OrderCancelled event detected, skipping...');
+                    return;
+                }
+                await prisma.user.update({
+                    where: { id: event.data.userId },
+                    data: {
+                        totalOrders: { decrement: 1 },
+                    },
+                });
+                await prisma.processedEvent.create({
+                    data: { eventId: event.eventId },
+                });
+            });
+            console.log('OrderCancelled event processed successfully.');
         }
-        await this.prisma.user.update({
-            where: { id: event.data.userId },
-            data: {
-                totalOrders: { decrement: 1 },
-            },
-        });
-        await this.prisma.processedEvent.create({
-            data: { eventId: event.eventId },
-        });
-        console.log('OrderCancelled event processed successfully.');
+        catch (error) {
+            if (error.code === 'P2002') {
+                console.log('Duplicate event detected at transaction level, skipping...');
+            }
+            else {
+                throw error;
+            }
+        }
     }
 };
 exports.UserService = UserService;

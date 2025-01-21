@@ -120,30 +120,40 @@ export class UserService {
   }
 
 
-  private async processOrderPlaced(event:KafkaEventDto) {
+  private async processOrderPlaced(event: KafkaEventDto) {
     console.log('Processing OrderPlaced event:', event);
-
-    const existingEvent = await this.prisma.processedEvent.findUnique({
-      where: { eventId: event.eventId },
-    });
-
-    if (existingEvent) {
-      console.log('Duplicate OrderPlaced event detected, skipping...');
-      return;
+  
+    try {
+      await this.prisma.$transaction(async (prisma) => {
+        const existingEvent = await prisma.processedEvent.findUnique({
+          where: { eventId: event.eventId },
+        });
+  
+        if (existingEvent) {
+          console.log('Duplicate OrderPlaced event detected, skipping...');
+          return;
+        }
+  
+        await prisma.user.update({
+          where: { id: event.data.userId },
+          data: {
+            totalOrders: { increment: 1 },
+          },
+        });
+  
+        await prisma.processedEvent.create({
+          data: { eventId: event.eventId },
+        });
+      });
+  
+      console.log('OrderPlaced event processed successfully.');
+    } catch (error) {
+      if (error.code === 'P2002') { 
+        console.log('Duplicate event detected at transaction level, skipping...');
+      } else {
+        throw error;
+      }
     }
-
-    await this.prisma.user.update({
-      where: { id: event.data.userId },
-      data: {
-        totalOrders: { increment: 1 },
-      },
-    });
-
-    await this.prisma.processedEvent.create({
-      data: { eventId: event.eventId },
-    });
-
-    console.log('OrderPlaced event processed successfully.');
   }
 
 
@@ -158,27 +168,38 @@ export class UserService {
 
   private async processOrderCancelled(event: KafkaEventDto) {
     console.log('Processing OrderCancelled event:', event);
-
-    const existingEvent = await this.prisma.processedEvent.findUnique({
-      where: { eventId: event.eventId },
-    });
-
-    if (existingEvent) {
-      console.log('Duplicate OrderCancelled event detected, skipping...');
-      return;
+  
+    try {
+      await this.prisma.$transaction(async (prisma) => {
+        const existingEvent = await prisma.processedEvent.findUnique({
+          where: { eventId: event.eventId },
+        });
+  
+        if (existingEvent) {
+          console.log('Duplicate OrderCancelled event detected, skipping...');
+          return;
+        }
+  
+        await prisma.user.update({
+          where: { id: event.data.userId },
+          data: {
+            totalOrders: { decrement: 1 },
+          },
+        });
+  
+        await prisma.processedEvent.create({
+          data: { eventId: event.eventId },
+        });
+      });
+  
+      console.log('OrderCancelled event processed successfully.');
+    } catch (error) {
+      if (error.code === 'P2002') { 
+        console.log('Duplicate event detected at transaction level, skipping...');
+      } else {
+        throw error;
+      }
     }
-
-    await this.prisma.user.update({
-      where: { id: event.data.userId },
-      data: {
-        totalOrders: { decrement: 1 },
-      },
-    });
-
-    await this.prisma.processedEvent.create({
-      data: { eventId: event.eventId },
-    });
-
-    console.log('OrderCancelled event processed successfully.');
   }
+  
 }
