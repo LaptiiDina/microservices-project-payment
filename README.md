@@ -1,103 +1,169 @@
-<<<<<<< HEAD
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+Microservices Project Payment
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+This project demonstrates a microservices architecture using Node.js and Nest.js, with Kafka as the messaging broker and REST APIs for communication. It implements two microservices:
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://coveralls.io/github/nestjs/nest?branch=master" target="_blank"><img src="https://coveralls.io/repos/github/nestjs/nest/badge.svg?branch=master#9" alt="Coverage" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+Order Service: Manages orders and communicates with Kafka for event-driven functionality.
+User Service: Handles user-related functionality and updates.
 
-## Description
+Project Structure
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+The project is structured as follows:
+microservices-project-payment/
+├── apps/
+│   ├── order-service/
+│   │   ├── prisma/                # Database schema and migrations
+│   │   ├── src/
+│   │   │   ├── dto/               # Data Transfer Objects
+│   │   │   ├── service/           # Business logic layer
+│   │   │   ├── order-service.controller.ts
+│   │   │   ├── order-service.module.ts
+│   │   │   ├── main.ts            # Entry point for the service
+│   │   ├── Dockerfile
+│   │   ├── package.json
+│   │   ├── tsconfig.app.json
+│   ├── user-service/
+│       ├── prisma/                # Database schema and migrations
+│       ├── src/
+│       │   ├── dto/               # Data Transfer Objects
+│       │   ├── service/           # Business logic layer
+│       │   ├── user-service.controller.ts
+│       │   ├── user-service.module.ts
+│       │   ├── main.ts            # Entry point for the service
+│       ├── Dockerfile
+│       ├── package.json
+│       ├── tsconfig.app.json
+├── kafka-init.sh                  # Kafka topic initialization script
+├── docker-compose.yml             # Docker Compose configuration for services
+├── .gitignore
+├── .gitattributes
+├── README.md
 
-## Project setup
+To get started with the project:
+Clone the repository using the following command:
+git clone https://github.com/LaptiiDina/microservices-project-payment.git
+Navigate to the project directory:
+cd microservices-project-payment
+Run the application using Docker Compose:
+docker-compose up
 
-```bash
-$ npm install
-```
 
-## Compile and run the project
+API Endpoints
 
-```bash
-# development
-$ npm run start
+UserService:
+Create User
 
-# watch mode
-$ npm run start:dev
+URL: http://localhost:3002/users
+Method: POST
+Description: Creates a new user. The email field must be unique. If the email already exists, an error response is returned, and a message is sent to the dead-letter-events Kafka topic.
+Request Body Example:
+{
+  "name": "John Doe",
+  "email": "john.doe3@example.com"
+}
+/////////////////////////////////////////////////////
 
-# production mode
-$ npm run start:prod
-```
+Get All Users
+URL: http://localhost:3002/users
+Method: GET
+Description: Retrieves an array of all users.
 
-## Run tests
+/////////////////////////////////////////////////
+Get User by ID
+http://localhost:3002/users/:id
+Method: GET
+Description: Retrieves the details of a user by their unique ID. If the user ID does not exist, an error response is returned, and a message is sent to the dead-letter-events Kafka topic.
+//////////////////////////////////////////////////
 
-```bash
-# unit tests
-$ npm run test
 
-# e2e tests
-$ npm run test:e2e
+Order Service: 
+//////////////////////
+Create Order
+http://localhost:3001/orders
+Method: POST
 
-# test coverage
-$ npm run test:cov
-```
+Description: Creates a new order. The userId must correspond to an existing user. If the userId does not exist, an error response is returned, and a message is sent to the dead-letter-events Kafka topic.
+After successfully creating an order, the totalOrders field of the user with the given userId is incremented by 1.
+You can verify the changes in totalOrders by using http://localhost:3002/users/:id (GET method) to fetch a specific user or http://localhost:3002/users (GET method) to fetch all users.
+Request Body Example:
+{
+  "userId": 3,
+  "product": "qqqqqqqqqq",
+  "quantity": 20
+}
 
-## Deployment
+Note: To check existing userIds, you can use the http://localhost:3002/users endpoint (method GET) from the User Service.
+/////////////////////////////
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+Get Order by ID
+URL: http://localhost:3001/orders/:id
+Method: GET
+Description: Retrieves the details of an order by its id. If the specified order does not exist, an error response is returned, and a message is sent to the dead-letter-events Kafka topic.
+///////////////////////////////////
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+Get All Orders
+URL: http://localhost:3001/orders
+Method: GET
+Description: Retrieves an array of all existing orders.
+//////////////////////////////////
 
-```bash
-$ npm install -g mau
-$ mau deploy
-```
+Get All Orders by User ID
+URL: http://localhost:3001/orders/user/:userId
+Method: GET
+Description: Retrieves an array of all orders associated with a specific userId.
+If the userId does not exist, an error will be logged, and a message will be published to the Kafka dead-letter-events topic 
+//////////////////////////////////////
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+Delete an Order by Order ID
+URL: http://localhost:3001/orders/:id
+Method: DELETE
+Description: Deletes an order by its id. After deleting the order, the corresponding user's totalOrders count is decremented by 1.
+You can verify the changes in totalOrders by using http://localhost:3002/users/:id (GET method) to fetch a specific user or http://localhost:3002/users (GET method) to fetch all users.
+If the Id does not exist, an error will be logged, and a message will be published to the Kafka dead-letter-events topic 
 
-## Resources
 
-Check out a few resources that may come in handy when working with NestJS:
+Kafka:
+How to Verify Kafka Events
+To check the events being published to Kafka topics, follow these steps:
+Open the Command Line: Access the command line interface where Docker is installed.
+Find the Kafka Container ID: Run the following command to get the Kafka container's ID:
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+-docker ps
 
-## Support
+Access the Kafka Container: Use the container ID from the previous step to open an interactive shell inside the Kafka container:
+Look for the container with the image name bitnami/kafka and note its CONTAINER ID.
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+-docker exec -it <container_id> bash
 
-## Stay in touch
+Consume Messages from a Topic: Inside the Kafka container, use the kafka-console-consumer.sh command to view messages from a specific topic. For example, to consume messages from the :
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+dead-letter-events topic:
+-kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic dead-letter-events --from-beginning
+order-placed:
+-kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic order-placed --from-beginning
+order-cancelled:
+-kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic order-cancelled --from-beginning
+user-created:
+-kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic user-created --from-beginning
 
-## License
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
-=======
-# microservices-project-payment
->>>>>>> 2c15bcb81f2b9fedb3e29599b29c0250a3ad87a9
+Topics to Monitor:
+
+dead-letter-events:
+Stores events that failed due to errors, such as:
+Invalid event format (e.g., missing eventId or userId).
+Failure to publish events to Kafka.
+Issues in processing an event (e.g., user or order not found).
+Helps debug issues related to unprocessable events.
+
+order-placed:
+Tracks successfully created orders.
+
+order-cancelled:
+Tracks successfully cancelled orders.
+
+user-created:
+Tracks successfully created users.
+
+
+
+

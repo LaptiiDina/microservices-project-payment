@@ -104,7 +104,7 @@ export class OrderService {
         lastValueFrom(
           this.kafkaClient.emit('order-placed', {
             eventId,
-            eventType: 'OrderPlaaced',
+            eventType: 'OrderPlaced',
             data: { orderId: order.id, ...data },
           }),
         ),

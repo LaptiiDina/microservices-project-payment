@@ -82,7 +82,7 @@ let OrderService = class OrderService {
         const eventId = (0, uuid_1.v4)();
         await this.retryService.executeTaskWithRetry(async () => (0, rxjs_1.lastValueFrom)(this.kafkaClient.emit('order-placed', {
             eventId,
-            eventType: 'OrderPlaaced',
+            eventType: 'OrderPlaced',
             data: { orderId: order.id, ...data },
         })), 'dead-letter-events', { eventId, data: { orderId: order.id, ...data } });
         console.log('OrderPlaced event published successfully:', { eventId, order });
