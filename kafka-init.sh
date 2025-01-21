@@ -1,5 +1,4 @@
-#!/bin/bash
-# Скрипт для создания топиков в Kafka при старте контейнера
+
 
 create_topic_if_not_exists() {
     local topic_name=$1
@@ -13,9 +12,9 @@ create_topic_if_not_exists() {
             --bootstrap-server kafka:9092 \
             --partitions "$partitions" \
             --replication-factor "$replication_factor"
-        echo "Топик '$topic_name' создан."
+        echo "Topic '$topic_name' created"
     else
-        echo "Топик '$topic_name' уже существует."
+        echo "Topic '$topic_name' have already exists"
     fi
 }
 
